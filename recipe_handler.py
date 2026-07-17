@@ -18,6 +18,7 @@ class RecipeHandler:
         self.recipes: dict[int, Recipe] = {}
         self._load_from_csv()
         self._next_id = max(self.recipes, default=0) + 1
+        self._write_to_csv()
 
     def _load_from_csv(self):
         with open(self.csv_path, newline='', encoding='utf-8') as recipecsv:
@@ -32,6 +33,20 @@ class RecipeHandler:
                     tags = row["tags"].split('|'),
                 )
                 self.recipes[recipe.id] = recipe
+
+    def _write_to_csv(self,recipes):
+        fieldnames = ['id', 'name', 'ingredients', 'steps', 'tags']
+        with open(self.csv_path, 'w', newline='', encoding='utf-8') as recipecsv:
+            writer = csv.DictWriter(recipecsv, fieldnames=fieldnames)
+            writer.writeheader()
+            for recipe in recipes:
+                writer.writerow({
+                    'id':recipe.id,
+                    'name': recipe.name,
+                    'ingredients': '|'.join(recipe.ingredients),
+                    'steps': '|'.join(recipe.steps),
+                    'tags':'|'.join(recipe.tags),
+                })
 
     def get_recipe_by_id(self,id):
         if id in self.recipes:
@@ -53,14 +68,22 @@ class RecipeHandler:
         return recipe_collection
 
     def add_recipe(self, name, ingredients, steps, tags):
-        recipe = Recipe(id = self._next_id,
-               name = name,
-               ingredients = ingredients,
-               steps = steps,
-               tags = tags,
+        #construct new recipe
+        recipe = Recipe(
+            #Mint new id with _next_id
+                id = self._next_id,
+                name = name,
+                ingredients = ingredients,
+                steps = steps,
+                tags = tags,
         )
+        #write to CSV
+
+        ####
+
+        #wait to add and iterate self._next_id until after the write finishes
+        self.recipes[recipe.id] = recipe
         self._next_id += 1
-        self.recipes[recipe.id]=recipe
         return recipe
 
 
