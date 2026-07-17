@@ -18,7 +18,7 @@ class RecipeHandler:
         self.recipes: dict[int, Recipe] = {}
         self._load_from_csv()
         self._next_id = max(self.recipes, default=0) + 1
-        self._write_to_csv()
+
 
     def _load_from_csv(self):
         with open(self.csv_path, newline='', encoding='utf-8') as recipecsv:
@@ -77,11 +77,13 @@ class RecipeHandler:
                 steps = steps,
                 tags = tags,
         )
-        #write to CSV
-
-        ####
-
-        #wait to add and iterate self._next_id until after the write finishes
+        # list(self.recipes.values() is what's currently in memory
+        # [recipe] is the newly minted recipe from above
+        recipes_to_add = list(self.recipes.values()) + [recipe]
+        # new recipe is not currently committed to our source of truth in memory, but is prepped to be have full file written to csv
+        # writing to csv
+        self._write_to_csv(recipes_to_add)
+        #now that write is done, grab back into memory from disk and iterate next_id
         self.recipes[recipe.id] = recipe
         self._next_id += 1
         return recipe
