@@ -28,3 +28,18 @@ def test_get_recipes_by_tag_nonexistent_tag(handler):
     loremipsum = "lorem ipsum"
     recipe_collection = handler.get_recipes_by_tag(loremipsum)
     assert recipe_collection == []
+
+    def test_add_recipe_persists(tmp_path):
+        csv_file = tmp_path / "recipes.csv"
+        csv_file.write_text(
+            "id,name,ingredients,steps,tags\n"
+            "1,Nachos,chips|cheese,bake it,quick|snack\n",
+            encoding="utf-8",
+        )
+        handler = RecipeHandler(str(csv_file))
+        handler.add_recipe("Tacos", ["shells", "beef"], ["cook", "fill"], ["dinner"])
+
+        #reload
+        reloaded = RecipeHandler(str(csv_file))
+        assert len(reloaded.get_all_recipes()) == 2
+        assert reloaded.get_recipe_by_id(2).name == "Tacos"
