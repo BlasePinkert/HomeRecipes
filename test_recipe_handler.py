@@ -1,29 +1,37 @@
 from recipe_handler import RecipeHandler, RecipeNotFound
 import pytest
 
-def test_loads_all_recipes():
-    handler =RecipeHandler("recipesTest.csv")
+@pytest.fixture
+def handler():
+    return RecipeHandler("recipesTest.csv")
+
+def test_loads_all_recipes(handler):
+    #handler =RecipeHandler("recipesTest.csv")
     recipes = handler.get_all_recipes()
     assert len(recipes) == 5
 
-def test_get_recipe_by_id():
-    handler = RecipeHandler("recipesTest.csv")
+def test_get_recipe_by_id(handler):
+    #handler = RecipeHandler("recipesTest.csv")
     recipe = handler.get_recipe_by_id(1)
     assert recipe.name == "Nachos Supreme"
 
-def test_get_recipe_by_id_no_recipe():
-    handler = RecipeHandler("recipesTest.csv")
+def test_get_recipe_by_id_no_recipe(handler):
+    # handler = RecipeHandler("recipesTest.csv")
     with pytest.raises(RecipeNotFound):
-        recipe = handler.get_recipe_by_id(999)
+        handler.get_recipe_by_id(999)
 
-def test_get_recipes_by_tag():
+def test_get_recipes_by_tag(handler):
     comfort = "comfort"
-    handler = RecipeHandler("recipesTest.csv")
-    recipe_collection = handler.get_recipes_by_tag(comfort)
-    assert len(recipe_collection) == 2
+    # handler = RecipeHandler("recipesTest.csv")
+    results = handler.get_recipes_by_tag(comfort)
+    assert all("comfort" in r.tags for r in results)
+    names = {r.name for r in results}
+    assert names == {"Spaghetti Bolognese", "Grilled Cheese"}
+    # recipe_collection = handler.get_recipes_by_tag(comfort)
+    # assert len(recipe_collection) == 2
 
-def test_get_recipes_by_tag_nonexistent_tag():
+def test_get_recipes_by_tag_nonexistent_tag(handler):
     loremipsum = "lorem ipsum"
-    handler = RecipeHandler("recipesTest.csv")
+    # handler = RecipeHandler("recipesTest.csv")
     recipe_collection = handler.get_recipes_by_tag(loremipsum)
     assert recipe_collection == []
