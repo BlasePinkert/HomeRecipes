@@ -9,7 +9,31 @@ class Recipe:
     steps: list[str]
     tags: list[str] = field(default_factory=list)
 
+    def __post_init__(self):
+        #sanitizing and normalizing data
+        self.name = self.name.strip()
+        self.ingredients = [item.strip() for item in self.ingredients]
+        self.steps = [item.strip() for item in self.steps]
+        self.tags = [item.strip() for item in self.tags]
+
+        #Validating sanitized and normalized data
+        if not self.name:
+            raise InvalidRecipe("Invalid Recipe Name")
+        if not self.ingredients: #Checking for an empty list
+            raise InvalidRecipe("Recipe needs at least one Ingredient")
+        if any(not item for item in self.ingredients): #checking for any element in the list that may be an empty string
+            raise InvalidRecipe("Ingredient can't contain empty values")
+        if not self.steps: #Checking for an empty list
+            raise InvalidRecipe("Recipe needs at least one Step")
+        if any(not item for item in self.steps): #checking for any element in the list that may be an empty string
+            raise InvalidRecipe("Steps can't contain empty steps")
+        if any(not item for item in self.tags): #only checking for empty string tags, as tags can be an empty list
+            raise InvalidRecipe("Tags can't contain empty values")
+
 class RecipeNotFound(Exception):
+    pass
+
+class InvalidRecipe(Exception):
     pass
 
 class RecipeHandler:
