@@ -97,3 +97,51 @@ def test_recipe_empty_step_string():
 def test_recipe_empty_tag_string():
     with pytest.raises(InvalidRecipe):
         Recipe(id=1, name='Scotch on the rocks', ingredients=['scotch', 'ice'], steps=['pour over ice','drink'], tags=[''])
+
+def test_delete_recipe(tmp_path):
+    csv_file = tmp_path / "recipes.csv"
+    csv_file.write_text(
+        "id,name,ingredients,steps,tags\n"
+        "1,Nachos,chips|cheese,bake it,quick|snack\n"
+        "2,Tacos,chips|cheese,bake it,quick|snack\n"
+        "3,Burgers,chips|cheese,bake it,quick|snack\n"
+        "4,Steak,chips|cheese,bake it,quick|snack\n",
+        encoding="utf-8",
+    )
+    handler = RecipeHandler(str(csv_file))
+    assert len(handler.get_all_recipes()) == 4
+    handler.delete_recipe(3)
+    reloaded = RecipeHandler(str(csv_file))
+    assert len(reloaded.get_all_recipes()) == 3
+
+def test_delete_recipe_raise(tmp_path):
+    csv_file = tmp_path / "recipes.csv"
+    csv_file.write_text(
+        "id,name,ingredients,steps,tags\n"
+        "1,Nachos,chips|cheese,bake it,quick|snack\n"
+        "2,Tacos,chips|cheese,bake it,quick|snack\n"
+        "3,Burgers,chips|cheese,bake it,quick|snack\n"
+        "4,Steak,chips|cheese,bake it,quick|snack\n",
+        encoding="utf-8",
+    )
+    handler = RecipeHandler(str(csv_file))
+    with pytest.raises(RecipeNotFound):
+        handler.delete_recipe(999)
+
+def test_middle_delete_followed_by_add_for_correct_id(tmp_path):
+    csv_file = tmp_path / "recipes.csv"
+    csv_file.write_text(
+        "id,name,ingredients,steps,tags\n"
+        "1,Nachos,chips|cheese,bake it,quick|snack\n"
+        "2,Tacos,chips|cheese,bake it,quick|snack\n"
+        "3,Burgers,chips|cheese,bake it,quick|snack\n"
+        "4,Steak,chips|cheese,bake it,quick|snack\n",
+        encoding="utf-8",
+    )
+    handler = RecipeHandler(str(csv_file))
+    handler.delete_recipe(2)
+    reloaded = RecipeHandler(str(csv_file))
+    reloaded.add_recipe("Boogers", ["Boogers", "Snot"], ["cook", "fill"], ["dinner"])
+    with pytest.raises(RecipeNotFound):
+        reloaded.delete_recipe(2)
+    assert reloaded.get_recipe_by_id(5).name == "Boogers"
