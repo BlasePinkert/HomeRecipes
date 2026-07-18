@@ -90,6 +90,7 @@ class RecipeHandler:
             if tag in recipe.tags:
                 recipe_collection.append(recipe)
         return recipe_collection
+
 #TODO address latent bug where id creation doesn't follow intended behavior if I delete max id recipe, followed by a recipe write, the new write after the delete of max id recipe will reuse that id
     def add_recipe(self, name, ingredients, steps, tags):
         #construct new recipe
