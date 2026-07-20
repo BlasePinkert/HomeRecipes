@@ -1,9 +1,13 @@
 from recipe_handler import RecipeHandler, Recipe, RecipeNotFound, InvalidRecipe
+from pathlib import Path
 import pytest
+
+TEST_DIR = Path(__file__).parent
+TEST_CSV = TEST_DIR / "recipesTest.csv"
 
 @pytest.fixture
 def handler():
-    return RecipeHandler("recipesTest.csv")
+    return RecipeHandler(str(TEST_CSV))
 
 def test_loads_all_recipes(handler):
     recipes = handler.get_all_recipes()

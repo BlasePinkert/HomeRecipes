@@ -1,0 +1,37 @@
+from flask import Flask, jsonify, request
+from dataclasses import asdict
+from recipe_handler import RecipeHandler, RecipeNotFound, InvalidRecipe
+from pathlib import Path
+
+DATA_FILE = Path(__file__).parent / "data" / "recipes.csv"
+
+app = Flask(__name__)
+handler = RecipeHandler(str(DATA_FILE))
+
+
+@app.route("/")
+def home():
+    return "HomeRecipes is running"
+
+@app.route("/recipes/<int:id>")
+def get_recipe(id):
+    try:
+        recipe = handler.get_recipe_by_id(id)
+        return jsonify(asdict(recipe))
+    except RecipeNotFound:
+        return jsonify({"error": f"No Recipe with id {id}"}), 404
+
+@app.route("/recipes")
+def get_recipes():
+    tag = request.args.get("tag")
+    if tag is None:
+        recipe_collection = handler.get_all_recipes()
+    else:
+        recipe_collection = handler.get_recipes_by_tag(tag)
+
+    recipe_dicts=[asdict(r) for r in recipe_collection]
+    return jsonify(recipe_dicts)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
