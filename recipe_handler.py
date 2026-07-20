@@ -125,8 +125,28 @@ class RecipeHandler:
         del self.recipes[id]
         return to_be_deleted
 
-    def edit_recipe(self, id=None, name=None, ingredients=None, steps=None, tags=None):
+    def edit_recipe(self, id, name=None, ingredients=None, steps=None, tags=None):
         #all arguments default vals == None
+        #fetch existing recipe, hold in variable so as not to update memory/disk
+        recipe_to_update = self.get_recipe_by_id(id)
 
+        #if argument not passed and defaulted to None, keep original vale, else use new value
+        new_name = name if name is not None else recipe_to_update.name
+        new_ingredients = ingredients if ingredients is not None else recipe_to_update.ingredients
+        new_steps = steps if steps is not None else recipe_to_update.steps
+        new_tags = tags if tags is not None else recipe_to_update.tags
 
-
+        #updated recipe value from value merge above
+        updated_recipe = Recipe(
+                id = id,
+                name = new_name,
+                ingredients = new_ingredients,
+                steps = new_steps,
+                tags = new_tags,
+        )
+        #other recipes in memory not being edited
+        others = [r for r in self.recipes.values() if r.id != id]
+        #combine others and updated_recipe for disk write
+        self._write_to_csv(others +[updated_recipe]) #disk
+        self.recipes[id] = updated_recipe #commit to memory on success
+        return updated_recipe
