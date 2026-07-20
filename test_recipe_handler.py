@@ -3,7 +3,7 @@ import pytest
 
 @pytest.fixture
 def handler():
-    return RecipeHandler("recipesTest.csv")
+    return RecipeHandler(".data/recipesTest.csv")
 
 def test_loads_all_recipes(handler):
     recipes = handler.get_all_recipes()
