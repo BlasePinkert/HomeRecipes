@@ -22,6 +22,8 @@ def get_recipe(id):
         return jsonify({"error": f"No Recipe with id {id}"}), 404
 
 @app.route("/recipes")
+#/recipes
+#/recipes?tag=<value>
 def get_recipes():
     tag = request.args.get("tag")
     if tag is None:
@@ -32,6 +34,22 @@ def get_recipes():
     recipe_dicts=[asdict(r) for r in recipe_collection]
     return jsonify(recipe_dicts)
 
+@app.route("/recipes", methods=["POST"])
+def add_recipe():
+    data = request.get_json()
+    try:
+        recipe = handler.add_recipe(
+            data["name"],
+            data["ingredients"],
+            data["steps"],
+            data["tags"],
+        )
+        return jsonify(asdict(recipe)), 201
+
+    except InvalidRecipe as e:
+        return jsonify({"error": str(e)}),400
+    except KeyError as e:
+        return jsonify({"error": f"Missing required field: {e}"}),400
 
 if __name__ == "__main__":
     app.run(debug=True)
