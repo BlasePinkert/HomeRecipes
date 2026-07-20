@@ -145,3 +145,131 @@ def test_middle_delete_followed_by_add_for_correct_id(tmp_path):
     with pytest.raises(RecipeNotFound):
         reloaded.delete_recipe(2)
     assert reloaded.get_recipe_by_id(5).name == "Boogers"
+
+def test_edit_recipe_with_bad_id(handler):
+    with pytest.raises(RecipeNotFound):
+        handler.edit_recipe(99999999)
+
+def test_edit_recipe_with_empty_changes(tmp_path):
+    csv_file = tmp_path / "recipes.csv"
+    csv_file.write_text(
+        "id,name,ingredients,steps,tags\n"
+        "1,Nachos,chips|cheese,bake it,quick|snack\n"
+        "2,Tacos,chips|cheese,bake it,quick|snack\n"
+        "3,Burgers,chips|cheese,bake it,quick|snack\n"
+        "4,Steak,chips|cheese,bake it,quick|snack\n",
+        encoding="utf-8",
+    )
+    handler=RecipeHandler(str(csv_file))
+    original_recipe = handler.get_recipe_by_id(1)
+    empty_updates_recipe = handler.edit_recipe(1)
+    assert original_recipe == empty_updates_recipe
+
+def test_edit_recipe_with_all_changes(tmp_path):
+    csv_file = tmp_path / "recipes.csv"
+    csv_file.write_text(
+        "id,name,ingredients,steps,tags\n"
+        "1,Nachos,chips|cheese,bake it,quick|snack\n"
+        "2,Tacos,chips|cheese,bake it,quick|snack\n"
+        "3,Burgers,chips|cheese,bake it,quick|snack\n"
+        "4,Steak,chips|cheese,bake it,quick|snack\n",
+        encoding="utf-8",
+    )
+    handler=RecipeHandler(str(csv_file))
+    original_recipe = handler.get_recipe_by_id(3)
+    updated_recipe = handler.edit_recipe(3,"BURGERS!",["beef","buns","cheese"],["light grill","form patties","grill 10 minutes or until internal temp is 140"],["grilling","beef", "not healthy"])
+    assert original_recipe != updated_recipe
+    assert updated_recipe.id == original_recipe.id
+    assert updated_recipe.name == "BURGERS!"
+    assert updated_recipe.ingredients == ["beef","buns","cheese"]
+    assert updated_recipe.steps == ["light grill", "form patties", "grill 10 minutes or until internal temp is 140"]
+    assert updated_recipe.tags == ["grilling", "beef","not healthy"]
+
+def test_edit_recipe_ingredients(tmp_path):
+    csv_file = tmp_path / "recipes.csv"
+    csv_file.write_text(
+        "id,name,ingredients,steps,tags\n"
+        "1,Nachos,chips|cheese,bake it,quick|snack\n"
+        "2,Tacos,chips|cheese,bake it,quick|snack\n"
+        "3,Burgers,chips|cheese,bake it,quick|snack\n"
+        "4,Steak,chips|cheese,bake it,quick|snack\n",
+        encoding="utf-8",
+    )
+    handler=RecipeHandler(str(csv_file))
+    original_recipe = handler.get_recipe_by_id(3)
+    updated_recipe = handler.edit_recipe(3,ingredients=["beef","buns","cheese"])
+    assert original_recipe != updated_recipe
+    assert original_recipe.id == updated_recipe.id
+    assert updated_recipe.name == "Burgers"
+    assert updated_recipe.ingredients == ["beef","buns","cheese"]
+
+
+def test_edit_recipe_steps(tmp_path):
+    csv_file = tmp_path / "recipes.csv"
+    csv_file.write_text(
+        "id,name,ingredients,steps,tags\n"
+        "1,Nachos,chips|cheese,bake it,quick|snack\n"
+        "2,Tacos,chips|cheese,bake it,quick|snack\n"
+        "3,Burgers,chips|cheese,bake it,quick|snack\n"
+        "4,Steak,chips|cheese,bake it,quick|snack\n",
+        encoding="utf-8",
+    )
+    handler=RecipeHandler(str(csv_file))
+    original_recipe = handler.get_recipe_by_id(3)
+    updated_recipe = handler.edit_recipe(3,steps=["light grill","form patties","grill 10 minutes or until internal temp is 140"])
+    assert original_recipe != updated_recipe
+    assert original_recipe.id == updated_recipe.id
+    assert updated_recipe.name == original_recipe.name
+    assert updated_recipe.ingredients == original_recipe.ingredients
+    assert updated_recipe.tags == original_recipe.tags
+    assert updated_recipe.steps == ["light grill", "form patties", "grill 10 minutes or until internal temp is 140"]
+
+
+def test_edit_recipe_tags(tmp_path):
+    csv_file = tmp_path / "recipes.csv"
+    csv_file.write_text(
+        "id,name,ingredients,steps,tags\n"
+        "1,Nachos,chips|cheese,bake it,quick|snack\n"
+        "2,Tacos,chips|cheese,bake it,quick|snack\n"
+        "3,Burgers,chips|cheese,bake it,quick|snack\n"
+        "4,Steak,chips|cheese,bake it,quick|snack\n",
+        encoding="utf-8",
+    )
+    handler=RecipeHandler(str(csv_file))
+    original_recipe = handler.get_recipe_by_id(3)
+    updated_recipe = handler.edit_recipe(3,tags=["grilling","beef", "not healthy"])
+    assert original_recipe != updated_recipe
+    assert updated_recipe.name == original_recipe.name
+    assert updated_recipe.ingredients == original_recipe.ingredients
+    assert updated_recipe.steps == original_recipe.steps
+    assert updated_recipe.tags == ["grilling", "beef","not healthy"]
+
+def test_edit_recipe_empty_tags(tmp_path):
+    csv_file = tmp_path / "recipes.csv"
+    csv_file.write_text(
+        "id,name,ingredients,steps,tags\n"
+        "1,Nachos,chips|cheese,bake it,quick|snack\n"
+        "2,Tacos,chips|cheese,bake it,quick|snack\n"
+        "3,Burgers,chips|cheese,bake it,quick|snack\n"
+        "4,Steak,chips|cheese,bake it,quick|snack\n",
+        encoding="utf-8",
+    )
+    handler=RecipeHandler(str(csv_file))
+    original_recipe = handler.get_recipe_by_id(3)
+    updated_recipe = handler.edit_recipe(3,tags=[])
+    assert original_recipe != updated_recipe
+    assert updated_recipe.name == "Burgers"
+    assert updated_recipe.ingredients == ["chips","cheese"]
+    assert updated_recipe.steps == original_recipe.steps
+    assert updated_recipe.tags == []
+
+def test_edit_recipe_invalid_ingredients_raises(tmp_path):
+    csv_file = tmp_path / "recipes.csv"
+    csv_file.write_text(
+        "id,name,ingredients,steps,tags\n"
+        "1,Nachos,chips|cheese,bake it,quick|snack\n",
+        encoding="utf-8",
+    )
+    handler=RecipeHandler(str(csv_file))
+    with pytest.raises(InvalidRecipe):
+        handler.edit_recipe(1,ingredients=[])
