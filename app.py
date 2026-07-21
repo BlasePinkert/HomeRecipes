@@ -1,5 +1,3 @@
-from crypt import methods
-
 from flask import Flask, jsonify, request
 from dataclasses import asdict
 from recipe_handler import RecipeHandler, RecipeNotFound, InvalidRecipe
@@ -53,14 +51,16 @@ def add_recipe():
     except KeyError as e:
         return jsonify({"error": f"Missing required field: {e}"}),400
 
-#TODO: TEST
-@app.route("recipes/<int:id>", methods=["DELETE"])
-def delete_recipe():
-    recipe = handler.delete_recipe(id)
-    return jsonify(asdict(recipe)), 200
+@app.route("/recipes/<int:id>", methods=["DELETE"])
+def delete_recipe(id):
+    try:
+        recipe = handler.delete_recipe(id)
+        return jsonify(asdict(recipe)), 200
+    except RecipeNotFound:
+        return jsonify({"error": f"No recipe with id {id}"}), 404
 
 #TODO: TEST
-@app.route("recipes/<int:id>", methods=["PATCH"])
+@app.route("/recipes/<int:id>", methods=["PATCH"])
 def edit_recipe():
     data = request.json()
     recipe_to_update = handler.get_recipe_by_id(id)
