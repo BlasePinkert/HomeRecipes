@@ -9,7 +9,31 @@ class Recipe:
     steps: list[str]
     tags: list[str] = field(default_factory=list)
 
+    def __post_init__(self):
+        #sanitizing and normalizing data
+        self.name = self.name.strip()
+        self.ingredients = [item.strip() for item in self.ingredients]
+        self.steps = [item.strip() for item in self.steps]
+        self.tags = [item.strip() for item in self.tags]
+
+        #Validating sanitized and normalized data
+        if not self.name:
+            raise InvalidRecipe("Invalid Recipe Name")
+        if not self.ingredients: #Checking for an empty list
+            raise InvalidRecipe("Recipe needs at least one Ingredient")
+        if any(not item for item in self.ingredients): #checking for any element in the list that may be an empty string
+            raise InvalidRecipe("Ingredient can't contain empty values")
+        if not self.steps: #Checking for an empty list
+            raise InvalidRecipe("Recipe needs at least one Step")
+        if any(not item for item in self.steps): #checking for any element in the list that may be an empty string
+            raise InvalidRecipe("Steps can't contain empty steps")
+        if any(not item for item in self.tags): #only checking for empty string tags, as tags can be an empty list
+            raise InvalidRecipe("Tags can't contain empty values")
+
 class RecipeNotFound(Exception):
+    pass
+
+class InvalidRecipe(Exception):
     pass
 
 class RecipeHandler:
@@ -18,6 +42,7 @@ class RecipeHandler:
         self.recipes: dict[int, Recipe] = {}
         self._load_from_csv()
         self._next_id = max(self.recipes, default=0) + 1
+
 
     def _load_from_csv(self):
         with open(self.csv_path, newline='', encoding='utf-8') as recipecsv:
@@ -32,6 +57,20 @@ class RecipeHandler:
                     tags = row["tags"].split('|'),
                 )
                 self.recipes[recipe.id] = recipe
+
+    def _write_to_csv(self,recipes):
+        fieldnames = ['id', 'name', 'ingredients', 'steps', 'tags']
+        with open(self.csv_path, 'w', newline='', encoding='utf-8') as recipecsv:
+            writer = csv.DictWriter(recipecsv, fieldnames=fieldnames)
+            writer.writeheader()
+            for recipe in recipes:
+                writer.writerow({
+                    'id':recipe.id,
+                    'name': recipe.name,
+                    'ingredients': '|'.join(recipe.ingredients),
+                    'steps': '|'.join(recipe.steps),
+                    'tags':'|'.join(recipe.tags),
+                })
 
     def get_recipe_by_id(self,id):
         if id in self.recipes:
@@ -52,15 +91,62 @@ class RecipeHandler:
                 recipe_collection.append(recipe)
         return recipe_collection
 
+#TODO address latent bug where id creation doesn't follow intended behavior if I delete max id recipe, followed by a recipe write, the new write after the delete of max id recipe will reuse that id
     def add_recipe(self, name, ingredients, steps, tags):
-        recipe = Recipe(id = self._next_id,
-               name = name,
-               ingredients = ingredients,
-               steps = steps,
-               tags = tags,
+        #construct new recipe
+        recipe = Recipe(
+            #Mint new id with _next_id
+                id = self._next_id,
+                name = name,
+                ingredients = ingredients,
+                steps = steps,
+                tags = tags,
         )
+        # list(self.recipes.values() is what's currently in memory
+        # [recipe] is the newly minted recipe from above
+        recipes_to_add = list(self.recipes.values()) + [recipe]
+        # new recipe is not currently committed to our source of truth in memory, but is prepped to be have full file written to csv
+        # writing to csv
+        self._write_to_csv(recipes_to_add)
+        #now that write is done, grab back into memory from disk and iterate next_id
+        self.recipes[recipe.id] = recipe
         self._next_id += 1
-        self.recipes[recipe.id]=recipe
         return recipe
 
+    def delete_recipe(self, id):
 
+        if id not in self.recipes:
+            raise RecipeNotFound(f"no recipe with id: {id}")
+
+        to_be_deleted = self.recipes[id]
+        remaining_recipes = [recipe for recipe in  self.recipes.values() if recipe.id != id]
+
+        self._write_to_csv(remaining_recipes)
+        del self.recipes[id]
+        return to_be_deleted
+
+    def edit_recipe(self, id, name=None, ingredients=None, steps=None, tags=None):
+        #all arguments default vals == None
+        #fetch existing recipe, hold in variable so as not to update memory/disk
+        recipe_to_update = self.get_recipe_by_id(id)
+
+        #if argument not passed and defaulted to None, keep original vale, else use new value
+        new_name = name if name is not None else recipe_to_update.name
+        new_ingredients = ingredients if ingredients is not None else recipe_to_update.ingredients
+        new_steps = steps if steps is not None else recipe_to_update.steps
+        new_tags = tags if tags is not None else recipe_to_update.tags
+
+        #updated recipe value from value merge above
+        updated_recipe = Recipe(
+                id = id,
+                name = new_name,
+                ingredients = new_ingredients,
+                steps = new_steps,
+                tags = new_tags,
+        )
+        #other recipes in memory not being edited
+        others = [r for r in self.recipes.values() if r.id != id]
+        #combine others and updated_recipe for disk write
+        self._write_to_csv(others +[updated_recipe]) #disk
+        self.recipes[id] = updated_recipe #commit to memory on success
+        return updated_recipe
