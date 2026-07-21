@@ -1,3 +1,5 @@
+from crypt import methods
+
 from flask import Flask, jsonify, request
 from dataclasses import asdict
 from recipe_handler import RecipeHandler, RecipeNotFound, InvalidRecipe
@@ -50,6 +52,38 @@ def add_recipe():
         return jsonify({"error": str(e)}),400
     except KeyError as e:
         return jsonify({"error": f"Missing required field: {e}"}),400
+
+#TODO: TEST
+@app.route("recipes/<int:id>", methods=["DELETE"])
+def delete_recipe():
+    recipe = handler.delete_recipe(id)
+    return jsonify(asdict(recipe)), 200
+
+#TODO: TEST
+@app.route("recipes/<int:id>", methods=["PATCH"])
+def edit_recipe():
+    data = request.json()
+    recipe_to_update = handler.get_recipe_by_id(id)
+
+    new_name = data["name"] if data["name"] is not None else recipe_to_update.name
+    new_ingredients = data["ingredients"] if data["ingredients"] is not None else recipe_to_update.ingredients
+    new_steps = data["steps"] if data["steps"] is not None else recipe_to_update.steps
+    new_tags = data["tags"] if data["tags"] is not None else recipe_to_update.tags
+    try:
+        recipe = handler.edit_recipe(
+            id,
+            new_name,
+            new_ingredients,
+            new_steps,
+            new_tags,
+        )
+        return jsonify(asdict(recipe)), 201
+    except InvalidRecipe as e:
+        return jsonify({"error": str(e)}), 400
+    except RecipeNotFound as e:
+        return jsonify({"error": str(e)}), 404
+    except KeyError as e:
+        return jsonify({"error": f"Invalid Value for field: {e}"}), 400
 
 if __name__ == "__main__":
     app.run(debug=True)
