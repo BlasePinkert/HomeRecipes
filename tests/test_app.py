@@ -142,12 +142,3 @@ def test_edit_recipe_invalid():
     response = client.patch("/recipes/1", json={"name": ""})
     assert response.status_code == 400
     assert "error" in response.get_json()
-
-
-
-#tests needing completed
-
-# done get_recipe missing (mock raises RecipeNotFound → assert 404)
-# done get_recipes returns a list (mock get_all_recipes.return_value = [recipe1, recipe2] → assert 200 and the JSON is a list of the right length)
-# create_recipe happy path (mock add_recipe.return_value a Recipe → POST with client.post("/recipes", json={...}) → assert 201)
-# create_recipe invalid (mock add_recipe.side_effect = InvalidRecipe(...) → assert 400)
