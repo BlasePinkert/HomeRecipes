@@ -15,6 +15,8 @@ def init_db():
         cursor.executescript(schema_sql)    #run all CREATE TABLE stmts
         conn.commit()                       #make the schema permanent
         print(f"Database Initialized at {DB_PATH}")
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        print(cursor.fetchall())
     finally:
         conn.close()                        #always closes connection, even if something fails
 

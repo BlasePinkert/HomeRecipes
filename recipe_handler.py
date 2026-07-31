@@ -1,5 +1,7 @@
 import csv
 from dataclasses import dataclass, field
+import sqlite3
+
 
 @dataclass
 class Recipe:
@@ -37,116 +39,220 @@ class InvalidRecipe(Exception):
     pass
 
 class RecipeHandler:
-    def __init__(self, csv_path: str):
-        self.csv_path = csv_path
-        self.recipes: dict[int, Recipe] = {}
-        self._load_from_csv()
-        self._next_id = max(self.recipes, default=0) + 1
+    def __init__(self, db_path):
+        self.db_path = db_path
+    # def __init__(self, csv_path: str):
+    #     self.csv_path = csv_path
+    #     self.recipes: dict[int, Recipe] = {}
+    #     self._load_from_csv()
+    #     self._next_id = max(self.recipes, default=0) + 1
 
+    #
+    # def _load_from_csv(self):
+    #     with open(self.csv_path, newline='', encoding='utf-8') as recipecsv:
+    #         reader = csv.DictReader(recipecsv)
+    #
+    #         for row in reader:
+    #             recipe = Recipe(
+    #                 id = int(row["id"]),
+    #                 name = row["name"],
+    #                 ingredients = row["ingredients"].split('|'),
+    #                 steps = row["steps"].split('|'),
+    #                 tags = row["tags"].split('|'),
+    #             )
+    #             self.recipes[recipe.id] = recipe
+    #
+    # def _write_to_csv(self,recipes):
+    #     fieldnames = ['id', 'name', 'ingredients', 'steps', 'tags']
+    #     with open(self.csv_path, 'w', newline='', encoding='utf-8') as recipecsv:
+    #         writer = csv.DictWriter(recipecsv, fieldnames=fieldnames)
+    #         writer.writeheader()
+    #         for recipe in recipes:
+    #             writer.writerow({
+    #                 'id':recipe.id,
+    #                 'name': recipe.name,
+    #                 'ingredients': '|'.join(recipe.ingredients),
+    #                 'steps': '|'.join(recipe.steps),
+    #                 'tags':'|'.join(recipe.tags),
+    #             })
 
-    def _load_from_csv(self):
-        with open(self.csv_path, newline='', encoding='utf-8') as recipecsv:
-            reader = csv.DictReader(recipecsv)
+    def get_recipe_by_id(self, id):
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.cursor()
 
-            for row in reader:
-                recipe = Recipe(
-                    id = int(row["id"]),
-                    name = row["name"],
-                    ingredients = row["ingredients"].split('|'),
-                    steps = row["steps"].split('|'),
-                    tags = row["tags"].split('|'),
-                )
-                self.recipes[recipe.id] = recipe
+            cursor.execute("SELECT name FROM recipes WHERE id = ?", (id,))
+            row = cursor.fetchone()
+            if row is None:
+                raise RecipeNotFound(f"No recipe with id {id}")
+            name = row[0]
 
-    def _write_to_csv(self,recipes):
-        fieldnames = ['id', 'name', 'ingredients', 'steps', 'tags']
-        with open(self.csv_path, 'w', newline='', encoding='utf-8') as recipecsv:
-            writer = csv.DictWriter(recipecsv, fieldnames=fieldnames)
-            writer.writeheader()
-            for recipe in recipes:
-                writer.writerow({
-                    'id':recipe.id,
-                    'name': recipe.name,
-                    'ingredients': '|'.join(recipe.ingredients),
-                    'steps': '|'.join(recipe.steps),
-                    'tags':'|'.join(recipe.tags),
-                })
+            cursor.execute("SELECT name FROM ingredients WHERE recipe_id = ?", (id,))
+            ingredients = [r[0] for r in cursor.fetchall()]
 
-    def get_recipe_by_id(self,id):
-        if id in self.recipes:
-            return self.recipes[id]
-        else:
-            raise RecipeNotFound(f"No Recipe with id {id}")
+            cursor.execute(
+                "SELECT directions FROM steps WHERE recipe_id = ? ORDER BY position",
+                (id,),
+            )
+            steps = [r[0] for r in cursor.fetchall()]
+
+            cursor.execute(
+                "SELECT tags.name FROM recipe_tags "
+                "JOIN tags ON tags.id = recipe_tags.tag_id "
+                "WHERE recipe_tags.recipe_id = ?",
+                (id,),
+            )
+            tags = [r[0] for r in cursor.fetchall()]
+
+            return Recipe(id=id, name=name, ingredients=ingredients, steps=steps, tags=tags)
+        finally:
+            conn.close()
 
     def get_all_recipes(self):
-        recipe_collection = list(self.recipes.values())
-        return recipe_collection
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM recipes")
+            ids = [r[0] for r in cursor.fetchall()]
+        finally:
+            conn.close()
+        return [self.get_recipe_by_id(id) for id in ids]
 
-    # def get_recipes_by_tag(self, tag):
-    #     return [recipe for recipe in self.recipes.values() if tag in recipe.tags]
+    # def get_all_recipes(self):
+    #     recipe_collection = list(self.recipes.values())
+    #     return recipe_collection
+
     def get_recipes_by_tag(self, tag):
-        recipe_collection = []
-        for recipe in self.recipes.values():
-            if tag in recipe.tags:
-                recipe_collection.append(recipe)
-        return recipe_collection
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT recipe_tags.recipe_id FROM recipe_tags "
+                "JOIN tags ON tags.id = recipe_tags.tag_id "
+                "WHERE tags.name = ?",
+                (tag,),
+            )
+            ids = [r[0] for r in cursor.fetchall()]
+        finally:
+            conn.close()
+        return [self.get_recipe_by_id(id) for id in ids]
 
-#TODO address latent bug where id creation doesn't follow intended behavior if I delete max id recipe, followed by a recipe write, the new write after the delete of max id recipe will reuse that id
     def add_recipe(self, name, ingredients, steps, tags):
         #construct new recipe
-        recipe = Recipe(
-            #Mint new id with _next_id
-                id = self._next_id,
-                name = name,
-                ingredients = ingredients,
-                steps = steps,
-                tags = tags,
-        )
-        # list(self.recipes.values() is what's currently in memory
-        # [recipe] is the newly minted recipe from above
-        recipes_to_add = list(self.recipes.values()) + [recipe]
-        # new recipe is not currently committed to our source of truth in memory, but is prepped to be have full file written to csv
-        # writing to csv
-        self._write_to_csv(recipes_to_add)
-        #now that write is done, grab back into memory from disk and iterate next_id
-        self.recipes[recipe.id] = recipe
-        self._next_id += 1
-        return recipe
+        #constructing just to throw away, told it's a small code smell
+        #to get rid of code smell, pull recipe validation out of post init
+        #and into standalone function both data class and handler can call
+        Recipe(id=0, name=name, ingredients=ingredients, steps=steps, tags=tags)
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO recipes (name) VALUES (?)", (name,))
+            recipe_id = cursor.lastrowid
+            for ingredient in ingredients:
+                cursor.execute(
+                    "INSERT INTO ingredients (recipe_id, name) VALUES (?, ?)",
+                    (recipe_id, ingredient),
+                )
+
+            for position, step in enumerate(steps):
+                cursor.execute(
+                    "INSERT INTO steps (recipe_id, position, directions) VALUES (?, ?, ?)",
+                    (recipe_id, position, step),
+                )
+            for tag in tags:
+                cursor.execute("SELECT id FROM tags WHERE name = ?",(tag,))
+                row = cursor.fetchone()
+                if row is not None:
+                    tag_id=row[0]
+                else:
+                    cursor.execute(
+                        "INSERT INTO tags (name) VALUES (?)",
+                        (tag,))
+                    tag_id = cursor.lastrowid
+                cursor.execute(
+                    "INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?,?)",
+                    (recipe_id, tag_id),
+                )
+            conn.commit()
+            return Recipe(id=recipe_id, name=name, ingredients=ingredients, steps=steps, tags=tags)
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def delete_recipe(self, id):
+        to_be_deleted = self.get_recipe_by_id(id)
+        conn = sqlite3.connect(self.db_path)
 
-        if id not in self.recipes:
-            raise RecipeNotFound(f"no recipe with id: {id}")
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE from ingredients WHERE recipe_id = ?", (id,))
+            cursor.execute("DELETE from steps WHERE recipe_id = ?", (id,))
+            cursor.execute("DELETE from recipe_tags WHERE recipe_id = ?", (id,))
+            cursor.execute("DELETE from recipes WHERE id = ?", (id,))
+            conn.commit()
+            return to_be_deleted
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
-        to_be_deleted = self.recipes[id]
-        remaining_recipes = [recipe for recipe in  self.recipes.values() if recipe.id != id]
-
-        self._write_to_csv(remaining_recipes)
-        del self.recipes[id]
-        return to_be_deleted
 
     def edit_recipe(self, id, name=None, ingredients=None, steps=None, tags=None):
-        #all arguments default vals == None
-        #fetch existing recipe, hold in variable so as not to update memory/disk
         recipe_to_update = self.get_recipe_by_id(id)
-
-        #if argument not passed and defaulted to None, keep original vale, else use new value
+        #if argument not passed and defaulted to None, keep original value, else use new value
         new_name = name if name is not None else recipe_to_update.name
         new_ingredients = ingredients if ingredients is not None else recipe_to_update.ingredients
         new_steps = steps if steps is not None else recipe_to_update.steps
         new_tags = tags if tags is not None else recipe_to_update.tags
-
-        #updated recipe value from value merge above
-        updated_recipe = Recipe(
+        Recipe(
                 id = id,
                 name = new_name,
                 ingredients = new_ingredients,
                 steps = new_steps,
                 tags = new_tags,
         )
-        #other recipes in memory not being edited
-        others = [r for r in self.recipes.values() if r.id != id]
-        #combine others and updated_recipe for disk write
-        self._write_to_csv(others +[updated_recipe]) #disk
-        self.recipes[id] = updated_recipe #commit to memory on success
-        return updated_recipe
+
+        conn = sqlite3.connect(self.db_path)
+        try:
+            cursor = conn.cursor()
+            if name is not None:
+                cursor.execute("UPDATE recipes SET name = ? WHERE id = ?",(name, id))
+            if ingredients is not None:
+                cursor.execute("DELETE FROM ingredients WHERE recipe_id = ?", (id,))
+                for ingredient in ingredients:
+                    cursor.execute(
+                        "INSERT INTO ingredients (recipe_id, name) VALUES (?, ?)",
+                        (id, ingredient)),
+            if steps is not None:
+                cursor.execute("DELETE FROM steps WHERE recipe_id = ?", (id,))
+                for position, step in enumerate(steps):
+                    cursor.execute(
+                        "INSERT INTO steps (recipe_id, position, directions) VALUES (?, ?, ?)",
+                        (id, position, step)),
+            if tags is not None:
+                cursor.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (id,))
+                for tag in tags:
+                    cursor.execute("SELECT id FROM tags WHERE name = ?", (tag,))
+                    row = cursor.fetchone()
+                    if row is not None:
+                        tag_id = row[0]
+                    else:
+                        cursor.execute(
+                            "INSERT INTO tags (name) VALUES (?)",
+                            (tag,)),
+                        tag_id = cursor.lastrowid
+                    cursor.execute(
+                        "INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?,?)",
+                        (id, tag_id)),
+
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+        return self.get_recipe_by_id(id)
+
