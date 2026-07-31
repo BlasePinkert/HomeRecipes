@@ -41,40 +41,33 @@ class InvalidRecipe(Exception):
 class RecipeHandler:
     def __init__(self, db_path):
         self.db_path = db_path
-    # def __init__(self, csv_path: str):
-    #     self.csv_path = csv_path
-    #     self.recipes: dict[int, Recipe] = {}
-    #     self._load_from_csv()
-    #     self._next_id = max(self.recipes, default=0) + 1
 
-    #
-    # def _load_from_csv(self):
-    #     with open(self.csv_path, newline='', encoding='utf-8') as recipecsv:
-    #         reader = csv.DictReader(recipecsv)
-    #
-    #         for row in reader:
-    #             recipe = Recipe(
-    #                 id = int(row["id"]),
-    #                 name = row["name"],
-    #                 ingredients = row["ingredients"].split('|'),
-    #                 steps = row["steps"].split('|'),
-    #                 tags = row["tags"].split('|'),
-    #             )
-    #             self.recipes[recipe.id] = recipe
-    #
-    # def _write_to_csv(self,recipes):
-    #     fieldnames = ['id', 'name', 'ingredients', 'steps', 'tags']
-    #     with open(self.csv_path, 'w', newline='', encoding='utf-8') as recipecsv:
-    #         writer = csv.DictWriter(recipecsv, fieldnames=fieldnames)
-    #         writer.writeheader()
-    #         for recipe in recipes:
-    #             writer.writerow({
-    #                 'id':recipe.id,
-    #                 'name': recipe.name,
-    #                 'ingredients': '|'.join(recipe.ingredients),
-    #                 'steps': '|'.join(recipe.steps),
-    #                 'tags':'|'.join(recipe.tags),
-    #             })
+    def _insert_ingredients(self,cursor,recipe_id, ingredients):
+        for ingredient in ingredients:
+            cursor.execute(
+            "INSERT INTO ingredients (recipe_id, name) VALUES (?,?)",
+                (recipe_id, ingredient)
+            )
+    def _insert_steps(selfself,cursor, recipe_id, steps):
+        for position, step in enumerate(steps):
+            cursor.execute(
+                "INSERT INTO steps (recipe_id, position, directions) VALUES (?,?,?)",
+                (recipe_id, position, step)
+            )
+
+    def _insert_tags(self, cursor, recipe_id, tags):
+        for tag in tags:
+            cursor.execute("SELECT id FROM tags WHERE name = ?", (tag,))
+            row = cursor.fetchone()
+            if row is not None:
+                tag_id = row[0]
+            else:
+                cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag,))
+                tag_id = cursor.lastrowid
+            cursor.execute(
+                "INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)",
+                (recipe_id, tag_id),
+            )
 
     def get_recipe_by_id(self, id):
         conn = sqlite3.connect(self.db_path)
@@ -118,10 +111,6 @@ class RecipeHandler:
             conn.close()
         return [self.get_recipe_by_id(id) for id in ids]
 
-    # def get_all_recipes(self):
-    #     recipe_collection = list(self.recipes.values())
-    #     return recipe_collection
-
     def get_recipes_by_tag(self, tag):
         conn = sqlite3.connect(self.db_path)
         try:
@@ -148,31 +137,9 @@ class RecipeHandler:
             cursor = conn.cursor()
             cursor.execute("INSERT INTO recipes (name) VALUES (?)", (name,))
             recipe_id = cursor.lastrowid
-            for ingredient in ingredients:
-                cursor.execute(
-                    "INSERT INTO ingredients (recipe_id, name) VALUES (?, ?)",
-                    (recipe_id, ingredient),
-                )
-
-            for position, step in enumerate(steps):
-                cursor.execute(
-                    "INSERT INTO steps (recipe_id, position, directions) VALUES (?, ?, ?)",
-                    (recipe_id, position, step),
-                )
-            for tag in tags:
-                cursor.execute("SELECT id FROM tags WHERE name = ?",(tag,))
-                row = cursor.fetchone()
-                if row is not None:
-                    tag_id=row[0]
-                else:
-                    cursor.execute(
-                        "INSERT INTO tags (name) VALUES (?)",
-                        (tag,))
-                    tag_id = cursor.lastrowid
-                cursor.execute(
-                    "INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?,?)",
-                    (recipe_id, tag_id),
-                )
+            self._insert_ingredients(cursor, recipe_id, ingredients)
+            self._insert_steps(cursor, recipe_id, steps)
+            self._insert_tags(cursor, recipe_id, tags)
             conn.commit()
             return Recipe(id=recipe_id, name=name, ingredients=ingredients, steps=steps, tags=tags)
         except Exception:
@@ -222,31 +189,13 @@ class RecipeHandler:
                 cursor.execute("UPDATE recipes SET name = ? WHERE id = ?",(name, id))
             if ingredients is not None:
                 cursor.execute("DELETE FROM ingredients WHERE recipe_id = ?", (id,))
-                for ingredient in ingredients:
-                    cursor.execute(
-                        "INSERT INTO ingredients (recipe_id, name) VALUES (?, ?)",
-                        (id, ingredient)),
+                self._insert_ingredients(cursor, id, ingredients)
             if steps is not None:
                 cursor.execute("DELETE FROM steps WHERE recipe_id = ?", (id,))
-                for position, step in enumerate(steps):
-                    cursor.execute(
-                        "INSERT INTO steps (recipe_id, position, directions) VALUES (?, ?, ?)",
-                        (id, position, step)),
+                self._insert_steps(cursor, id, steps)
             if tags is not None:
                 cursor.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (id,))
-                for tag in tags:
-                    cursor.execute("SELECT id FROM tags WHERE name = ?", (tag,))
-                    row = cursor.fetchone()
-                    if row is not None:
-                        tag_id = row[0]
-                    else:
-                        cursor.execute(
-                            "INSERT INTO tags (name) VALUES (?)",
-                            (tag,)),
-                        tag_id = cursor.lastrowid
-                    cursor.execute(
-                        "INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?,?)",
-                        (id, tag_id)),
+                self._insert_tags(cursor, id, tags)
 
             conn.commit()
         except Exception:
