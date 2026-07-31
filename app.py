@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from dataclasses import asdict
 from recipe_handler import RecipeHandler, RecipeNotFound, InvalidRecipe
+from flask_cors import CORS
 from pathlib import Path
 
 
@@ -8,7 +9,7 @@ from pathlib import Path
 def create_app(handler):
 
     app = Flask(__name__)
-
+    CORS(app, origins=["http://localhost:3000"])
     @app.route("/")
     def home():
         return "HomeRecipes is running"
