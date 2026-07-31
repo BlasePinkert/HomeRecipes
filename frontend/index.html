@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>HomeRecipes</title>
+</head>
+<body>
+    <h1>My Recipes</h1>
+    <ul id="recipe-list"></ul>
+
+
+    <h3>Submit New Recipe</h3>
+    <form id="add-recipe-form">
+        <input type="text" id="name" placeholder="Recipe Name">
+        <input type="text" id="ingredients" placeholder="Ingredients (comma separated)">
+        <input type="text" id="steps" placeholder="Steps (comma separated)">
+        <input type="text" id="tags" placeholder="tags (comma separated)">
+        <button type="submit">Add Recipe</button>
+    </form>
+
+    <form id="edit-recipe-form" style="display: none">
+        <input type="text" id="edit-name" placeholder="Edit Recipe Name">
+        <input type="text" id="edit-ingredients" placeholder="Edit Ingredients (comma separated)">
+        <input type="text" id="edit-steps" placeholder="Edit Steps (comma separated)">
+        <input type="text" id="edit-tags" placeholder="edit tags (comma separated)">
+        <button type="submit">Submit Edits</button>
+    </form>
+
+    <script src="app.js"></script>
+</body>
+</html>
