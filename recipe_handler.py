@@ -48,7 +48,7 @@ class RecipeHandler:
             "INSERT INTO ingredients (recipe_id, name) VALUES (?,?)",
                 (recipe_id, ingredient)
             )
-    def _insert_steps(selfself,cursor, recipe_id, steps):
+    def _insert_steps(self,cursor, recipe_id, steps):
         for position, step in enumerate(steps):
             cursor.execute(
                 "INSERT INTO steps (recipe_id, position, directions) VALUES (?,?,?)",

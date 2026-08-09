@@ -1,18 +1,40 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, session
 from dataclasses import asdict
 from recipe_handler import RecipeHandler, RecipeNotFound, InvalidRecipe
+from user_handler import UserHandler,InvalidCredentials
 from flask_cors import CORS
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
+from user_handler import InvalidCredentials
 
+load_dotenv()
 
-def create_app(handler):
+def create_app(recipe_handler, user_handler):
 
     app = Flask(__name__)
-    CORS(app, origins=["http://localhost:3000"])
+    app.secret_key = os.environ["SECRET_KEY"]
+    CORS(app, supports_credentials=True)
     @app.route("/")
     def home():
         return "HomeRecipes is running"
+
+    @app.route("/login", methods=["POST"])
+    def login():
+        data = request.get_json()
+        try:
+            user = user_handler.verify_credentials(data["username"],data["password"])
+            session["user_id"] = user.id
+            session["role"] = user.role
+            return jsonify({"username": user.username, "role":user.role}),200
+        except InvalidCredentials:
+            return jsonify({"error":"Invalid username or password"}), 401
+
+    @app.route("/logout", methods=["POST"])
+    def logout():
+        session.clear()
+        return jsonify({"message": "Logged Out"}), 200
 
     @app.route("/recipes/<int:id>")
     def get_recipe(id):
