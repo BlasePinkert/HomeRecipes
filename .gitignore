@@ -1,2 +1,6 @@
 .artifacts
 .data
+.env
+.venv/
+__pycache__/
+*.db
